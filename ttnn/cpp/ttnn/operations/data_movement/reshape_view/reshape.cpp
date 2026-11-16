@@ -796,9 +796,10 @@ ttnn::Tensor reshape_dispatch(
         ttnn::reshaped_tensor_topology(tensor.tensor_topology(), tensor_shape, logical_shape)
             .value_or(tensor.tensor_topology());
 
+    ttnn::Tensor output;
     // Do the reshape in row-major
     if (tensor.layout() == ttnn::ROW_MAJOR_LAYOUT) {
-        auto output = operations::data_movement::detail::reshape_rm(
+        output = operations::data_movement::detail::reshape_rm(
             tensor,
             logical_shape,
             padded_shape,
@@ -807,22 +808,21 @@ ttnn::Tensor reshape_dispatch(
             mem_config,
             pad_value.value_or(default_pad_value),
             sub_core_grid);
-        output.update_tensor_topology(output_topology);
-        return output;
+    } else {
+        // Preserve whether the caller explicitly passed pad_value. value_or(default_pad_value) below
+        // collapses that signal, but reshape_tiled needs it to gate the default-off fill for non-BF8.
+        const bool pad_value_explicit = pad_value.has_value();
+        output = operations::data_movement::reshape_tiled(
+            tensor,
+            logical_shape,
+            mem_config,
+            pad_value.value_or(default_pad_value),
+            reshape_map_mode == TileReshapeMapMode::RECREATE,
+            sub_core_grid,
+            explicit_memory_config,
+            skip_padding_fill,
+            pad_value_explicit);
     }
-    // Preserve whether the caller explicitly passed pad_value. value_or(default_pad_value) below
-    // collapses that signal, but reshape_tiled needs it to gate the default-off fill for non-BF8.
-    const bool pad_value_explicit = pad_value.has_value();
-    auto output = operations::data_movement::reshape_tiled(
-        tensor,
-        logical_shape,
-        mem_config,
-        pad_value.value_or(default_pad_value),
-        reshape_map_mode == TileReshapeMapMode::RECREATE,
-        sub_core_grid,
-        explicit_memory_config,
-        skip_padding_fill,
-        pad_value_explicit);
     output.update_tensor_topology(output_topology);
     return output;
 }
