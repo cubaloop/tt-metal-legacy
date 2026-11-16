@@ -635,7 +635,7 @@ std::vector<Tensor> squared_difference_bw(
     const Tensor& other,
     const std::optional<MemoryConfig>& output_mem_config) {
     std::vector<Tensor> grad;
-    Tensor difference = ttnn::subtract(input_a, other);
+    Tensor difference = ttnn::subtract(input_a, other, std::nullopt, output_mem_config);
     Tensor grad_a = ttnn::multiply(
         ttnn::multiply(grad_tensor, difference, std::nullopt, output_mem_config), 2, std::nullopt, output_mem_config);
     grad.emplace_back(grad_a);
