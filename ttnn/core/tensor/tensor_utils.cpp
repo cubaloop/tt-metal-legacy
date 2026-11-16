@@ -115,6 +115,10 @@ std::optional<tt::tt_metal::TensorTopology> reshaped_tensor_topology(
     const tt::tt_metal::TensorTopology& topology,
     const tt::tt_metal::Shape& old_shape,
     const tt::tt_metal::Shape& new_shape) {
+    if (old_shape == new_shape || old_shape.volume() != new_shape.volume()) {
+        return std::nullopt;
+    }
+
     using Shard = tt::tt_metal::distributed::MeshMapperConfig::Shard;
     const int old_rank = static_cast<int>(old_shape.rank());
     const int new_rank = static_cast<int>(new_shape.rank());
@@ -136,7 +140,8 @@ std::optional<tt::tt_metal::TensorTopology> reshaped_tensor_topology(
         std::optional<int> destination;
         uint64_t new_prefix = 1;
         for (int d_prime = 0; d_prime < new_rank; ++d_prime) {
-            if (new_prefix == old_prefix && (new_shape[d_prime] > 1 || old_shape[dim] == 1)) {
+            const bool is_zero_match = (old_shape[dim] == 0 && new_shape[d_prime] == 0);
+            if (new_prefix == old_prefix && (new_shape[d_prime] > 1 || old_shape[dim] == 1 || is_zero_match)) {
                 destination = d_prime;
                 break;
             }
